@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ボロノイ図インタラクティブ・ジェネラティブアート</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  #voronoiCanvas { cursor: crosshair; touch-action: none; }
+  input[type=range] { accent-color: #8b5cf6; }
+</style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+<div class="max-w-6xl mx-auto px-4 py-6">
+  <h1 class="text-2xl font-bold text-center mb-1 text-purple-300">ボロノイ図 インタラクティブ・ジェネラティブアート</h1>
+  <p class="text-center text-gray-400 text-sm mb-6">クリックでサイト追加 / ドラッグで移動 / アニメーションで生成</p>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- Controls -->
+    <div class="lg:col-span-1 space-y-3">
+      <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+        <h2 class="font-semibold text-purple-300 border-b border-gray-700 pb-2">サイト操作</h2>
+
+        <div>
+          <label for="numSites" class="text-sm text-gray-300 flex justify-between">
+            <span>ランダム配置数</span><span id="numSitesVal" class="text-purple-400 font-mono">30</span>
+          </label>
+          <input type="range" id="numSites" min="10" max="200" value="30" class="w-full mt-1" aria-label="ランダム配置サイト数">
+        </div>
+
+        <button id="btnRandom" class="w-full bg-purple-700 hover:bg-purple-600 text-white font-semibold py-2 px-3 rounded-lg transition text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" aria-label="ランダムにサイトを配置">
+          ランダム配置
+        </button>
+        <button id="btnClear" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-3 rounded-lg transition text-sm focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="全サイトを削除">
+          全削除
+        </button>
+        <div class="text-xs text-gray-400">サイト数: <span id="siteCount" class="text-white font-mono">0</span></div>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+        <h2 class="font-semibold text-purple-300 border-b border-gray-700 pb-2">カラーモード</h2>
+        <div class="space-y-1">
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="colorMode" value="pastel" checked class="accent-purple-500" aria-label="パステルカラーモード"> パステル
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="colorMode" value="gradient" class="accent-purple-500" aria-label="グラジエントカラーモード"> 距離グラジェント
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="colorMode" value="heatmap" class="accent-purple-500" aria-label="ヒートマップカラーモード"> ヒートマップ
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="colorMode" value="bw" class="accent-purple-500" aria-label="白黒カラーモード"> 白黒
+          </label>
+        </div>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+        <h2 class="font-semibold text-purple-300 border-b border-gray-700 pb-2">表示オプション</h2>
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="showDelaunay" class="accent-purple-500" aria-label="ドロネー三角形を表示"> ドロネー三角形
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="showCircumcenters" class="accent-purple-500" aria-label="外接円の中心を表示"> 外接円中心
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="showSites" checked class="accent-purple-500" aria-label="サイト点を表示"> サイト点
+        </label>
+
+        <div class="pt-1">
+          <span class="text-sm text-gray-300 block mb-1">エッジスタイル</span>
+          <div class="space-y-1">
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+              <input type="radio" name="edgeStyle" value="filled" checked class="accent-purple-500" aria-label="塗りつぶし"> 塗りつぶし
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+              <input type="radio" name="edgeStyle" value="outline" class="accent-purple-500" aria-label="輪郭のみ"> 輪郭のみ
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+              <input type="radio" name="edgeStyle" value="dotted" class="accent-purple-500" aria-label="点線"> 点線
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl p-4 space-y-3">
+        <h2 class="font-semibold text-purple-300 border-b border-gray-700 pb-2">アニメーション</h2>
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="animateToggle" class="accent-purple-500" aria-label="アニメーションのオン/オフ"> サイトを動かす
+        </label>
+        <div>
+          <label for="driftSpeed" class="text-sm text-gray-300 flex justify-between">
+            <span>移動速度</span><span id="driftSpeedVal" class="text-purple-400 font-mono">1.0</span>
+          </label>
+          <input type="range" id="driftSpeed" min="0.1" max="3" step="0.1" value="1.0" class="w-full mt-1" aria-label="サイト移動速度">
+        </div>
+        <button id="btnExport" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-3 rounded-lg transition text-sm focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="PNGとしてエクスポート">
+          PNG 保存
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="lg:col-span-3">
+      <div class="bg-gray-800 rounded-xl p-3">
+        <canvas id="voronoiCanvas" role="img" aria-label="ボロノイ図インタラクティブキャンバス" class="w-full rounded-lg border border-gray-700 block"></canvas>
+        <p class="text-xs text-gray-500 mt-2 text-center">クリック：サイト追加 | ドラッグ：移動 | 右クリック：削除</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('voronoiCanvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+
+// State
+let sites = [];
+let velocities = [];
+let colorMode = 'pastel';
+let edgeStyle = 'filled';
+let showDelaunay = false;
+let showCircumcenters = false;
+let showSites = true;
+let animating = false;
+let driftSpeed = 1.0;
+let draggingIdx = -1;
+let animId = null;
+let voronoiData = null; // cached pixel data
+
+// Load from localStorage
+const saved = localStorage.getItem('voronoi_state');
+if (saved) {
+  try {
+    const s = JSON.parse(saved);
+    sites = s.sites || [];
+    velocities = sites.map(() => ({
+      vx: (Math.random()-0.5)*1,
+      vy: (Math.random()-0.5)*1
+    }));
+    colorMode = s.colorMode || 'pastel';
+    edgeStyle = s.edgeStyle || 'filled';
+    animating = s.animating || false;
+  } catch(e) {}
+}
+
+function saveState() {
+  localStorage.setItem('voronoi_state', JSON.stringify({
+    sites, colorMode, edgeStyle, animating
+  }));
+}
+
+// Canvas sizing
+function resizeCanvas() {
+  const container = canvas.parentElement;
+  W = container.clientWidth - 24;
+  H = Math.round(W * 0.65);
+  canvas.width = W;
+  canvas.height = H;
+  if (sites.length > 0) {
+    // Normalize if needed
+    renderVoronoi();
+  }
+}
+
+// Color utilities
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h/30) % 12;
+  const a = s * Math.min(l, 1-l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+  return [Math.round(f(0)*255), Math.round(f(8)*255), Math.round(f(4)*255)];
+}
+
+const siteColors = [];
+function getSiteColor(idx) {
+  while (siteColors.length <= idx) {
+    const h = (siteColors.length * 137.508) % 360;
+    siteColors.push(hslToRgb(h, 65, 70));
+  }
+  return siteColors[idx];
+}
+
+// Brute-force Voronoi
+function computeVoronoi() {
+  if (sites.length === 0) return null;
+  const imgData = ctx.createImageData(W, H);
+  const d = imgData.data;
+  const maxDist = Math.sqrt(W*W + H*H);
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let minDist = Infinity, minIdx = 0, secondDist = Infinity;
+      for (let i = 0; i < sites.length; i++) {
+        const dx = x - sites[i].x, dy = y - sites[i].y;
+        const dist = dx*dx + dy*dy;
+        if (dist < minDist) {
+          secondDist = minDist;
+          minDist = dist; minIdx = i;
+        } else if (dist < secondDist) {
+          secondDist = dist;
+        }
+      }
+      const idx4 = (y * W + x) * 4;
+      const sqrtMin = Math.sqrt(minDist);
+      const sqrtSecond = Math.sqrt(secondDist);
+      const edgeDist = sqrtSecond - sqrtMin;
+      const isEdge = edgeDist < 2.5;
+
+      let r, g, b;
+      if (colorMode === 'pastel') {
+        const c = getSiteColor(minIdx);
+        r = c[0]; g = c[1]; b = c[2];
+      } else if (colorMode === 'gradient') {
+        const t = Math.min(sqrtMin / (maxDist * 0.3), 1);
+        r = Math.round(20 + t * 200);
+        g = Math.round(80 + (1-t) * 150);
+        b = Math.round(180 - t * 100);
+      } else if (colorMode === 'heatmap') {
+        const t = Math.min(sqrtMin / (maxDist * 0.3), 1);
+        if (t < 0.33) { r = Math.round(t*3*255); g = 0; b = 255; }
+        else if (t < 0.66) { const u=(t-0.33)*3; r=255; g=Math.round(u*255); b=Math.round(255*(1-u)); }
+        else { const u=(t-0.66)*3; r=255; g=255; b=Math.round(u*255); }
+      } else { // bw
+        const t = (minIdx % 2 === 0) ? 220 : 60;
+        r = g = b = t;
+      }
+
+      if (edgeStyle === 'filled') {
+        if (isEdge) { r=10; g=10; b=10; }
+      } else if (edgeStyle === 'outline') {
+        if (!isEdge) { r=Math.round(r*0.1); g=Math.round(g*0.1); b=Math.round(b*0.1); }
+      } else { // dotted
+        if (isEdge) {
+          const dot = ((Math.floor(x/4) + Math.floor(y/4)) % 2 === 0);
+          if (dot) { r=200; g=200; b=200; } else { r=Math.round(r*0.1); g=Math.round(g*0.1); b=Math.round(b*0.1); }
+        }
+      }
+
+      d[idx4] = r; d[idx4+1] = g; d[idx4+2] = b; d[idx4+3] = 255;
+    }
+  }
+  return imgData;
+}
+
+// Circumcenters of triangles (simple Delaunay via bowyer-watson is complex; use simplified version)
+function computeDelaunay() {
+  // Simplified: connect each site to its N nearest neighbors
+  if (sites.length < 3) return [];
+  const triangles = [];
+  for (let i = 0; i < sites.length; i++) {
+    for (let j = i+1; j < sites.length; j++) {
+      for (let k = j+1; k < sites.length; k++) {
+        // Check if triangle i,j,k satisfies Delaunay condition (no other site in circumcircle)
+        const ax = sites[i].x, ay = sites[i].y;
+        const bx = sites[j].x, by = sites[j].y;
+        const cx = sites[k].x, cy = sites[k].y;
+
+        // Circumcenter
+        const D = 2*(ax*(by-cy)+bx*(cy-ay)+cx*(ay-by));
+        if (Math.abs(D) < 0.001) continue;
+        const ux = ((ax*ax+ay*ay)*(by-cy)+(bx*bx+by*by)*(cy-ay)+(cx*cx+cy*cy)*(ay-by))/D;
+        const uy = ((ax*ax+ay*ay)*(cx-bx)+(bx*bx+by*by)*(ax-cx)+(cx*cx+cy*cy)*(bx-ax))/D;
+        const r2 = (ax-ux)*(ax-ux)+(ay-uy)*(ay-uy);
+
+        let valid = true;
+        for (let l = 0; l < sites.length; l++) {
+          if (l===i||l===j||l===k) continue;
+          const dx=sites[l].x-ux, dy=sites[l].y-uy;
+          if (dx*dx+dy*dy < r2-0.5) { valid=false; break; }
+        }
+        if (valid) triangles.push({i,j,k,ux,uy});
+      }
+    }
+  }
+  return triangles;
+}
+
+let delaunayCache = null;
+let sitesHashCache = '';
+
+function getSitesHash() {
+  return sites.map(s=>`${Math.round(s.x)},${Math.round(s.y)}`).join('|');
+}
+
+function renderVoronoi() {
+  if (sites.length === 0) {
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('クリックしてサイトを追加するか「ランダム配置」を押してください', W/2, H/2);
+    return;
+  }
+
+  // Voronoi
+  const imgData = computeVoronoi();
+  if (imgData) ctx.putImageData(imgData, 0, 0);
+
+  // Delaunay
+  if (showDelaunay && sites.length <= 80) {
+    const hash = getSitesHash();
+    if (hash !== sitesHashCache) {
+      delaunayCache = computeDelaunay();
+      sitesHashCache = hash;
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 0.8;
+    for (const t of (delaunayCache||[])) {
+      ctx.beginPath();
+      ctx.moveTo(sites[t.i].x, sites[t.i].y);
+      ctx.lineTo(sites[t.j].x, sites[t.j].y);
+      ctx.lineTo(sites[t.k].x, sites[t.k].y);
+      ctx.closePath();
+      ctx.stroke();
+      if (showCircumcenters) {
+        ctx.fillStyle = 'rgba(255,200,0,0.7)';
+        ctx.beginPath();
+        ctx.arc(t.ux, t.uy, 2.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Sites
+  if (showSites) {
+    for (let i = 0; i < sites.length; i++) {
+      const c = getSiteColor(i);
+      ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sites[i].x, sites[i].y, 4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+}
+
+function animateSites() {
+  if (!animating) return;
+  for (let i = 0; i < sites.length; i++) {
+    if (draggingIdx === i) continue;
+    sites[i].x += velocities[i].vx * driftSpeed;
+    sites[i].y += velocities[i].vy * driftSpeed;
+    if (sites[i].x < 0) { sites[i].x = 0; velocities[i].vx *= -1; }
+    if (sites[i].x > W) { sites[i].x = W; velocities[i].vx *= -1; }
+    if (sites[i].y < 0) { sites[i].y = 0; velocities[i].vy *= -1; }
+    if (sites[i].y > H) { sites[i].y = H; velocities[i].vy *= -1; }
+  }
+  renderVoronoi();
+  animId = requestAnimationFrame(animateSites);
+}
+
+function startAnim() {
+  if (animId) cancelAnimationFrame(animId);
+  animateSites();
+}
+
+function stopAnim() {
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  renderVoronoi();
+}
+
+// Event helpers
+function getCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  if (e.touches) {
+    return { x: (e.touches[0].clientX - rect.left)*scaleX, y: (e.touches[0].clientY - rect.top)*scaleY };
+  }
+  return { x: (e.clientX - rect.left)*scaleX, y: (e.clientY - rect.top)*scaleY };
+}
+
+function findNearestSite(x, y, threshold = 15) {
+  let minDist = Infinity, idx = -1;
+  for (let i = 0; i < sites.length; i++) {
+    const d = Math.hypot(sites[i].x - x, sites[i].y - y);
+    if (d < minDist && d < threshold) { minDist = d; idx = i; }
+  }
+  return idx;
+}
+
+canvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  if (e.button === 2) {
+    // Right click: remove
+    const idx = findNearestSite(pos.x, pos.y, 20);
+    if (idx !== -1) {
+      sites.splice(idx, 1);
+      velocities.splice(idx, 1);
+      delaunayCache = null;
+      document.getElementById('siteCount').textContent = sites.length;
+      if (!animating) renderVoronoi();
+      saveState();
+    }
+    return;
+  }
+  const idx = findNearestSite(pos.x, pos.y);
+  if (idx !== -1) {
+    draggingIdx = idx;
+  } else {
+    sites.push({ x: pos.x, y: pos.y });
+    velocities.push({ vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5 });
+    delaunayCache = null;
+    document.getElementById('siteCount').textContent = sites.length;
+    if (!animating) renderVoronoi();
+    saveState();
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (draggingIdx === -1) return;
+  const pos = getCanvasPos(e);
+  sites[draggingIdx].x = pos.x;
+  sites[draggingIdx].y = pos.y;
+  delaunayCache = null;
+  if (!animating) renderVoronoi();
+});
+
+canvas.addEventListener('mouseup', () => { draggingIdx = -1; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  const idx = findNearestSite(pos.x, pos.y);
+  if (idx !== -1) draggingIdx = idx;
+  else {
+    sites.push({ x: pos.x, y: pos.y });
+    velocities.push({ vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5 });
+    delaunayCache = null;
+    document.getElementById('siteCount').textContent = sites.length;
+    if (!animating) renderVoronoi();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (draggingIdx === -1) return;
+  const pos = getCanvasPos(e);
+  sites[draggingIdx].x = pos.x;
+  sites[draggingIdx].y = pos.y;
+  delaunayCache = null;
+  if (!animating) renderVoronoi();
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { draggingIdx = -1; });
+
+document.getElementById('btnRandom').addEventListener('click', () => {
+  const count = parseInt(document.getElementById('numSites').value);
+  sites = [];
+  velocities = [];
+  for (let i = 0; i < count; i++) {
+    sites.push({ x: Math.random() * W, y: Math.random() * H });
+    velocities.push({ vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5 });
+  }
+  delaunayCache = null;
+  document.getElementById('siteCount').textContent = sites.length;
+  if (!animating) renderVoronoi();
+  saveState();
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  sites = []; velocities = [];
+  delaunayCache = null;
+  document.getElementById('siteCount').textContent = 0;
+  renderVoronoi();
+  saveState();
+});
+
+document.querySelectorAll('input[name="colorMode"]').forEach(el => {
+  el.checked = el.value === colorMode;
+  el.addEventListener('change', () => {
+    colorMode = el.value;
+    if (!animating) renderVoronoi();
+    saveState();
+  });
+});
+
+document.querySelectorAll('input[name="edgeStyle"]').forEach(el => {
+  el.checked = el.value === edgeStyle;
+  el.addEventListener('change', () => {
+    edgeStyle = el.value;
+    if (!animating) renderVoronoi();
+    saveState();
+  });
+});
+
+document.getElementById('showDelaunay').checked = showDelaunay;
+document.getElementById('showDelaunay').addEventListener('change', e => {
+  showDelaunay = e.target.checked;
+  if (!animating) renderVoronoi();
+});
+
+document.getElementById('showCircumcenters').checked = showCircumcenters;
+document.getElementById('showCircumcenters').addEventListener('change', e => {
+  showCircumcenters = e.target.checked;
+  if (!animating) renderVoronoi();
+});
+
+document.getElementById('showSites').checked = showSites;
+document.getElementById('showSites').addEventListener('change', e => {
+  showSites = e.target.checked;
+  if (!animating) renderVoronoi();
+});
+
+document.getElementById('animateToggle').checked = animating;
+document.getElementById('animateToggle').addEventListener('change', e => {
+  animating = e.target.checked;
+  if (animating) startAnim(); else stopAnim();
+  saveState();
+});
+
+document.getElementById('numSites').addEventListener('input', e => {
+  document.getElementById('numSitesVal').textContent = e.target.value;
+});
+
+document.getElementById('driftSpeed').addEventListener('input', e => {
+  driftSpeed = parseFloat(e.target.value);
+  document.getElementById('driftSpeedVal').textContent = driftSpeed.toFixed(1);
+});
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = `voronoi_${sites.length}sites.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// Init
+window.addEventListener('resize', () => { resizeCanvas(); });
+resizeCanvas();
+
+if (sites.length === 0) {
+  for (let i = 0; i < 30; i++) {
+    sites.push({ x: Math.random() * W, y: Math.random() * H });
+    velocities.push({ vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5 });
+  }
+}
+document.getElementById('siteCount').textContent = sites.length;
+
+if (animating) startAnim(); else renderVoronoi();
+</script>
+</body>
+</html>
